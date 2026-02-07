@@ -1,6 +1,7 @@
 #include "tool_registry.h"
 #include "tools/tool_web_search.h"
 #include "tools/tool_get_time.h"
+#include "tools/tool_files.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -77,6 +78,57 @@ esp_err_t tool_registry_init(void)
         .execute = tool_get_time_execute,
     };
     register_tool(&gt);
+
+    /* Register read_file */
+    mimi_tool_t rf = {
+        .name = "read_file",
+        .description = "Read a file from SPIFFS storage. Path must start with /spiffs/.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Absolute path starting with /spiffs/\"}},"
+            "\"required\":[\"path\"]}",
+        .execute = tool_read_file_execute,
+    };
+    register_tool(&rf);
+
+    /* Register write_file */
+    mimi_tool_t wf = {
+        .name = "write_file",
+        .description = "Write or overwrite a file on SPIFFS storage. Path must start with /spiffs/.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Absolute path starting with /spiffs/\"},"
+            "\"content\":{\"type\":\"string\",\"description\":\"File content to write\"}},"
+            "\"required\":[\"path\",\"content\"]}",
+        .execute = tool_write_file_execute,
+    };
+    register_tool(&wf);
+
+    /* Register edit_file */
+    mimi_tool_t ef = {
+        .name = "edit_file",
+        .description = "Find and replace text in a file on SPIFFS. Replaces first occurrence of old_string with new_string.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Absolute path starting with /spiffs/\"},"
+            "\"old_string\":{\"type\":\"string\",\"description\":\"Text to find\"},"
+            "\"new_string\":{\"type\":\"string\",\"description\":\"Replacement text\"}},"
+            "\"required\":[\"path\",\"old_string\",\"new_string\"]}",
+        .execute = tool_edit_file_execute,
+    };
+    register_tool(&ef);
+
+    /* Register list_dir */
+    mimi_tool_t ld = {
+        .name = "list_dir",
+        .description = "List files on SPIFFS storage, optionally filtered by path prefix.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"prefix\":{\"type\":\"string\",\"description\":\"Optional path prefix filter, e.g. /spiffs/memory/\"}},"
+            "\"required\":[]}",
+        .execute = tool_list_dir_execute,
+    };
+    register_tool(&ld);
 
     build_tools_json();
 

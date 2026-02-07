@@ -39,8 +39,17 @@ esp_err_t context_build_system_prompt(char *buf, size_t size)
         "- web_search: Search the web for current information. "
         "Use this when you need up-to-date facts, news, weather, or anything beyond your training data.\n"
         "- get_current_time: Get the current date and time. "
-        "You do NOT have an internal clock — always use this tool when you need to know the time or date.\n\n"
-        "Use tools when needed. Provide your final answer as text after using tools.\n");
+        "You do NOT have an internal clock — always use this tool when you need to know the time or date.\n"
+        "- read_file: Read a file from SPIFFS (path must start with /spiffs/).\n"
+        "- write_file: Write/overwrite a file on SPIFFS.\n"
+        "- edit_file: Find-and-replace edit a file on SPIFFS.\n"
+        "- list_dir: List files on SPIFFS, optionally filter by prefix.\n\n"
+        "Use tools when needed. Provide your final answer as text after using tools.\n\n"
+        "## Memory Guidelines\n"
+        "Your long-term memory is at /spiffs/memory/MEMORY.md — use write_file or edit_file to update it.\n"
+        "Daily notes are at /spiffs/memory/daily/<YYYY-MM-DD>.md — use get_current_time for today's date, then write_file to create/append.\n"
+        "When you learn something important about the user or need to remember something, persist it to memory.\n"
+        "Read /spiffs/memory/MEMORY.md first before writing, so you can append or edit without losing existing content.\n");
 
     /* Bootstrap files */
     off = append_file(buf, size, off, MIMI_SOUL_FILE, "Personality");
