@@ -24,6 +24,9 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "argtable3/argtable3.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 
 static const char *TAG = "cli";
 
@@ -614,6 +617,22 @@ static struct {
     struct arg_end *end;
 } web_search_args;
 
+typedef struct {
+    const char *input_json;
+    char *output;
+    size_t output_size;
+    esp_err_t err;
+    SemaphoreHandle_t done;
+} web_search_task_ctx_t;
+
+static void web_search_task(void *arg)
+{
+    web_search_task_ctx_t *task_ctx = (web_search_task_ctx_t *)arg;
+    task_ctx->err = tool_web_search_execute(task_ctx->input_json, task_ctx->output, task_ctx->output_size);
+    xSemaphoreGive(task_ctx->done);
+    vTaskDelete(NULL);
+}
+
 static bool json_escape_string(const char *in, char *out, size_t out_size)
 {
     if (!in || !out || out_size == 0) return false;
@@ -673,7 +692,50 @@ static int cmd_web_search(int argc, char **argv)
         return 1;
     }
 
-    esp_err_t err = tool_web_search_execute(input_json, output, 4096);
+    web_search_task_ctx_t *ctx = calloc(1, sizeof(*ctx));
+    char *input_copy = strdup(input_json);
+    if (!ctx || !input_copy) {
+        free(input_copy);
+        free(ctx);
+        free(output);
+        printf("Out of memory.\n");
+        return 1;
+    }
+
+    ctx->input_json = input_copy;
+    ctx->output = output;
+    ctx->output_size = 4096;
+    ctx->done = xSemaphoreCreateBinary();
+    if (!ctx->done) {
+        free(input_copy);
+        free(ctx);
+        free(output);
+        printf("Out of memory.\n");
+        return 1;
+    }
+
+    if (xTaskCreate(web_search_task, "cli_web_search", 20 * 1024, ctx, 5, NULL) != pdPASS) {
+        vSemaphoreDelete(ctx->done);
+        free(input_copy);
+        free(ctx);
+        free(output);
+        printf("Failed to start web_search task.\n");
+        return 1;
+    }
+
+    if (xSemaphoreTake(ctx->done, pdMS_TO_TICKS(45000)) != pdTRUE) {
+        printf("web_search status: timeout\n");
+        vSemaphoreDelete(ctx->done);
+        free(input_copy);
+        free(ctx);
+        free(output);
+        return 1;
+    }
+    esp_err_t err = ctx->err;
+    vSemaphoreDelete(ctx->done);
+    free(input_copy);
+    free(ctx);
+
     printf("web_search status: %s\n", esp_err_to_name(err));
     printf("%s\n", output[0] ? output : "(empty)");
     free(output);
